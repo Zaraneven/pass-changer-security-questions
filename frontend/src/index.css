@@ -1,0 +1,29 @@
+
+
+.field { 
+  width: 300px;
+  
+}
+
+.reg {
+  display: flex;
+  justify-content: center;
+  margin-top: 10%;
+}
+
+.btn {
+  display: flex;
+  justify-content: center;
+  margin-top: 50px;
+}
+
+.wlc {
+  display: flex;
+  justify-content: center;
+  top: 20px;
+}
+
+.wlc h2{
+  justify-content: center;
+  margin-left: 50px;
+}
