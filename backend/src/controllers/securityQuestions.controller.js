@@ -1,6 +1,6 @@
 import SecurityQuestion from "../models/securQuest.model.js";
 import User from "../models/user.model.js";
-import SecurityAnswers from '../models/securAnsw.model.js';
+import SecurityAnswers from '../models/securityAnswer.model.js';
 
 const getSecurityQuestions = async (req, res) => {
   try {
@@ -19,8 +19,17 @@ const updateSecurityQuestions = async (req, res) => {
     const securityQuestions = req.body.securityQuestions;
     await User.findOneAndUpdate(
       { _id: userId },
-      { $set: { securityQuestions, securityQuestionsAnswered: true } }
+      { $set: { securityQuestionsAnswered: true } }
     );
+    
+    const securityAnswers = securityQuestions.map((question) => {
+      return {
+        user: userId,
+        question: question.question,
+        answer: question.answer
+      }
+    });
+    await SecurityAnswers.insertMany(securityAnswers);
     return res.json({ status: "ok" });
   } catch (err) {
     console.error(err);

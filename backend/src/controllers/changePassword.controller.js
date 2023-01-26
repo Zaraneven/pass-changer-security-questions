@@ -1,5 +1,6 @@
 import bcrypt from "bcrypt";
 import User from "../models/user.model.js";
+import SecurityAnswers from '../models/securityAnswer.model.js';
 
 const saltRounds = 10;
 
@@ -10,20 +11,16 @@ const changePassword = async (req, res) => {
     const user = await User.findById(userId);
     if (!user)
       return res.status(404).json({ status: "error", error: "User not found" });
-      const match = await bcrypt.compare(oldPassword.toString(), user.password);
-      if (!match) {
-        return res.status(401).json({ status: "error", error: "Invalid old password" });
-      }
+    const match = await bcrypt.compare(oldPassword.toString(), user.password);
+    if (!match) {
+      return res.status(401).json({ status: "error", error: "Invalid old password" });
+    }
     let securityQuestionsAnsweredCorrectly = 0;
     for (let i = 0; i < securityQuestions.length; i++) {
       const question = securityQuestions[i].question;
       const answer = securityQuestions[i].answer;
-      const userQuestion = user.securityQuestions.find(
-        (q) => q.question === question
-      );
-      if (!userQuestion) continue;
-      const userAnswer = userQuestion.answer;
-      if (answer === userAnswer) {
+      const securityAnswer = await SecurityAnswers.findOne({ user: userId, question, answer });
+      if (securityAnswer) {
         securityQuestionsAnsweredCorrectly++;
       }
     }

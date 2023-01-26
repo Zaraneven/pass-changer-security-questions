@@ -7,7 +7,7 @@ const UserSchema = new mongoose.Schema({
   name: { type: String, unique: true, required: true },
   email: { type: String, unique: true, required: true },
   password: { type: String, required: true },
-  securityQuestions: [{ question: { type: String }, answer: { type: String } }],
+  securityQuestions: [{ type: mongoose.Schema.Types.ObjectId, ref: 'SecurityAnswer' }],
   securityQuestionsAnswered: { type: Boolean, default: false },
   passwordHistory: [
     { hashedPassword: { type: String }, createdAt: { type: Date } },
@@ -35,13 +35,11 @@ UserSchema.methods.resetAttempts = async function () {
   }
 };
 
-UserSchema.methods.compareSecurityQuestions = function (submittedAnswers) {
+UserSchema.methods.compareSecurityQuestions = async function (submittedAnswers) {
   let correctAnswers = 0;
   for (let i = 0; i < submittedAnswers.length; i++) {
     const submittedAnswer = submittedAnswers[i];
-    const dbAnswer = this.securityQuestions.find(
-      (q) => q._id == submittedAnswer.question
-    );
+    const dbAnswer = await SecurityAnswers.findOne({ question: submittedAnswer.question, user: this._id});
     if (dbAnswer && dbAnswer.answer === submittedAnswer.answer) {
       correctAnswers++;
     }

@@ -2,6 +2,7 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import config from "../config/config.js";
 import User from "../models/user.model.js";
+import SecurityAnswers from '../models/securityAnswer.model.js'
 
 const saltRounds = 10;
 
@@ -92,22 +93,26 @@ const resetPassword = async (req, res) => {
   try {
     const { email } = req.body;
     const { securityQuestions, newPassword } = req.body;
+
     const user = await User.findOne({ email });
     if (!user)
       return res.status(404).json({ status: "error", error: "User not found" });
+
+    const securityAnswers = await SecurityAnswers.find({ user: user._id });
+
     let securityQuestionsAnsweredCorrectly = 0;
     for (let i = 0; i < securityQuestions.length; i++) {
       const question = securityQuestions[i].question;
       const answer = securityQuestions[i].answer;
-      const userQuestion = user.securityQuestions.find(
-        (q) => q.question === question
-      );
-      if (!userQuestion) continue;
-      const userAnswer = userQuestion.answer;
-      if (answer === userAnswer) {
+
+      const userAnswer = securityAnswers.find((q) => q.question === question);
+      if (!userAnswer) continue;
+
+      if (answer === userAnswer.answer) {
         securityQuestionsAnsweredCorrectly++;
       }
     }
+
     if (securityQuestionsAnsweredCorrectly < 2) {
       return res.status(401).json({
         status: "error",
@@ -159,26 +164,39 @@ const forgetPassword = async (req, res) => {
       return res.status(401).json({ status: "error", error: "Invalid email" });
     }
 
-    let isMatch = true;
-    securityQuestions.forEach((question) => {
-      const userQuestion = user.securityQuestions.find(
-        (q) => q.question === question.question
-      );
-      if (!userQuestion || userQuestion.answer !== question.answer) {
-        isMatch = false;
+    const securityAnswers = await SecurityAnswers.find({ user: user._id });
+
+    let securityQuestionsAnsweredCorrectly = 0;
+    for (let i = 0; i < securityQuestions.length; i++) {
+      const question = securityQuestions[i].question;
+      const answer = securityQuestions[i].answer;
+
+      const userAnswer = securityAnswers.find((q) => q.question === question);
+      if (!userAnswer) continue;
+
+      if (answer === userAnswer.answer) {
+        securityQuestionsAnsweredCorrectly++;
       }
-    });
-    if (!isMatch) {
-      return res
-        .status(401)
-        .json({ status: "error", error: "Incorrect security answers" });
+    }
+
+    if (securityQuestionsAnsweredCorrectly < 2) {
+      return res.status(401).json({
+        status: "error",
+        error: "You have not answered the security questions correctly",
+      });
     }
 
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(newPassword, salt);
 
-    user.password = hashedPassword;
-    await user.save();
+    await User.updateOne(
+      { _id: user._id },
+      {
+        $set: { password: hashedPassword },
+        $set: { password: hashedPassword, attempts: 0, accountLocked: false },
+        $push: { passwordHistory: { hashedPassword, createdAt: Date.now() } },
+      }
+    );
 
     res.json({ status: "ok" });
   } catch (err) {
