@@ -21,7 +21,7 @@ const SecurityQuestionsForm = () => {
   const handleAnswerChange = (e, index) => {
     const updatedAnswers = [...answers];
     updatedAnswers[index] = {
-      question: questions[index]._id,
+      questionId: questions._id,
       answer: e.target.value,
     };
     setAnswers(updatedAnswers);
@@ -32,7 +32,7 @@ const SecurityQuestionsForm = () => {
     try {
       let userId = localStorage.getItem("id");
       const securityQuestions = questions.map((question, index) => ({
-        question: question.question,
+        questionId: question._id,
         answer: answers[index].answer,
       }));
       await axios.put(`http://localhost:5000/api/users/security/${userId}`, {

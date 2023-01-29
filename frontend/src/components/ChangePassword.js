@@ -1,31 +1,17 @@
-import React, { useState, useEffect } from "react";
+import React, { useState} from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 
 const ChangePassword = () => {
-  const [securityQuestions, setSecurityQuestions] = useState([]);
+  
   const [error, setError] = useState("");
-  const [answers, setAnswers] = useState([]);
+  
   const [newPassword, setNewPassword] = useState("");
   const [oldPassword, setOldPassword] = useState("")
   const [repeatedPassword, setRepeatedPassword] = useState('');
   const navigate = useNavigate();
 
-  useEffect(() => {
-    const fetchSecurityQuestions = async () => {
-      try {
-        const res = await axios.get("http://localhost:5000/api/users/security");
-        setSecurityQuestions(res.data.questions);
-      } catch (err) {
-        console.error(err);
-      }
-    };
-    fetchSecurityQuestions();
-  }, []);
-
-  const handleAnswerChange = (e, id) => {
-    setAnswers({ ...answers, [id]: e.target.value });
-  };
+  
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -39,18 +25,13 @@ const ChangePassword = () => {
     }
     try {
       const userId = localStorage.getItem("id");
-      const securityQuestionsAnswers = securityQuestions.map(
-        (question, index) => ({
-          question: question.question,
-          answer: answers[index],
-        })
-      );
+
       const response = await axios.put(
         `http://localhost:5000/api/users/change-password/${userId}`,
-        {oldPassword, securityQuestions: securityQuestionsAnswers, newPassword }
+        {oldPassword, newPassword }
       );
       if (response.status === 200) {
-        setAnswers([]);
+        
         setNewPassword("");
         setOldPassword("")
         alert("Password changed successfully");
@@ -68,22 +49,7 @@ const ChangePassword = () => {
   return (
     <div className="reg">
       <form className="ui form login" onSubmit={handleSubmit}>
-      <h3 style={{fontWeight: 'bold'}}>Please answer security questions !</h3>
-        {securityQuestions.map((question, index) => (
-          <div key={index}>
-            <label>
-              {question.question}
-              <div className="field">
-                <div className="ui input">
-                  <input
-                    type="text"
-                    onChange={(e) => handleAnswerChange(e, index)}
-                  />
-                </div>
-              </div>
-            </label>
-          </div>
-        ))}
+      
         <h3 style={{fontWeight: 'bold'}}>Please enter your old and new password !</h3>
          <label>Old Password
         <div className="field">

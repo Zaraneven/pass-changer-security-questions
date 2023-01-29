@@ -2,7 +2,9 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import config from "../config/config.js";
 import User from "../models/user.model.js";
-import SecurityAnswers from '../models/securityAnswer.model.js'
+import SecurityAnswers from "../models/securityAnswer.model.js";
+import PasswordHistory from "../models/passwordHistory.model.js";
+import SecurityQuestion from "../models/securQuest.model.js";
 
 const saltRounds = 10;
 
@@ -15,11 +17,16 @@ const register = async (req, res) => {
     email,
     password: hashedPassword,
     securityQuestions,
-    passwordHistory: [{ hashedPassword, createdAt: Date.now() }],
+  });
+
+  const newPasswordHistory = new PasswordHistory({
+    user: newUser._id,
+    hpasswords: [{ hashedPassword, createdAt: Date.now() }],
   });
 
   try {
     const savedUser = await newUser.save();
+    await newPasswordHistory.save();
     res.status(201).json({ savedUser, id: savedUser._id });
   } catch (error) {
     res.status(400).json({ message: error.message });
@@ -54,26 +61,21 @@ const login = async (req, res) => {
       if (user.attempts >= 2) {
         user.accountLocked = true;
         await user.save();
-        return res
-          .status(401)
-          .json({
-            status: "error",
-            error:
-              "Too many login attempts. Account locked. Please reset your password.",
-              
-          });
+        return res.status(401).json({
+          status: "error",
+          error:
+            "Too many login attempts. Account locked. Please reset your password.",
+        });
       }
       return res
         .status(401)
         .json({ status: "error", error: "Invalid email or password" });
     }
     if (user.accountLocked) {
-      return res
-        .status(401)
-        .json({
-          status: "error",
-          error: "Account is locked. Please reset your password.",
-        });
+      return res.status(401).json({
+        status: "error",
+        error: "Account is locked. Please reset your password.",
+      });
     }
 
     user.resetAttempts();
@@ -91,25 +93,27 @@ const login = async (req, res) => {
 
 const resetPassword = async (req, res) => {
   try {
-    const { email } = req.body;
-    const { securityQuestions, newPassword } = req.body;
+    const { email, securityQuestions, newPassword } = req.body;
 
     const user = await User.findOne({ email });
     if (!user)
       return res.status(404).json({ status: "error", error: "User not found" });
 
-    const securityAnswers = await SecurityAnswers.find({ user: user._id });
+    const securityAnswers = await SecurityAnswers.findOne({ user: user._id });
 
     let securityQuestionsAnsweredCorrectly = 0;
-    for (let i = 0; i < securityQuestions.length; i++) {
-      const question = securityQuestions[i].question;
-      const answer = securityQuestions[i].answer;
-
-      const userAnswer = securityAnswers.find((q) => q.question === question);
-      if (!userAnswer) continue;
-
-      if (answer === userAnswer.answer) {
-        securityQuestionsAnsweredCorrectly++;
+    for (let i = 0; i < securityAnswers.answers.length; i++) {
+      for (let j = 0; j < securityQuestions.length; j++) {
+        if (
+          securityAnswers.answers[i].questionId.toString() ===
+          securityQuestions[j].questionId
+        ) {
+          if (
+            securityAnswers.answers[i].answer === securityQuestions[j].answer
+          ) {
+            ++securityQuestionsAnsweredCorrectly;
+          }
+        }
       }
     }
 
@@ -120,7 +124,8 @@ const resetPassword = async (req, res) => {
       });
     }
 
-    const lastFivePasswords = user.passwordHistory.slice(0, 5);
+    const passwordHistory = await PasswordHistory.findOne({ user: user._id });
+    const lastFivePasswords = passwordHistory.hpasswords.slice(0, 5);
     for (let i = 0; i < lastFivePasswords.length; i++) {
       const match = await bcrypt.compare(
         newPassword.toString(),
@@ -139,12 +144,18 @@ const resetPassword = async (req, res) => {
       saltRounds
     );
 
+    await PasswordHistory.updateOne(
+      { _id: passwordHistory._id },
+      {
+        $push: { hpasswords: { hashedPassword, createdAt: Date.now() } },
+      }
+    );
+
     await User.updateOne(
       { _id: user._id },
       {
         $set: { password: hashedPassword },
         $set: { password: hashedPassword, attempts: 0, accountLocked: false },
-        $push: { passwordHistory: { hashedPassword, createdAt: Date.now() } },
       }
     );
 
@@ -157,25 +168,29 @@ const resetPassword = async (req, res) => {
 
 const forgetPassword = async (req, res) => {
   try {
-    const { email, securityQuestions, newPassword } = req.body;
+    const { email, newPassword, securityQuestions } = req.body;
 
     const user = await User.findOne({ email });
     if (!user) {
       return res.status(401).json({ status: "error", error: "Invalid email" });
     }
 
-    const securityAnswers = await SecurityAnswers.find({ user: user._id });
+    const securityAnswers = await SecurityAnswers.findOne({ user: user._id });
+    
 
     let securityQuestionsAnsweredCorrectly = 0;
-    for (let i = 0; i < securityQuestions.length; i++) {
-      const question = securityQuestions[i].question;
-      const answer = securityQuestions[i].answer;
-
-      const userAnswer = securityAnswers.find((q) => q.question === question);
-      if (!userAnswer) continue;
-
-      if (answer === userAnswer.answer) {
-        securityQuestionsAnsweredCorrectly++;
+    for (let i = 0; i < securityAnswers.answers.length; i++) {
+      for (let j = 0; j < securityQuestions.length; j++) {
+        if (
+          securityAnswers.answers[i].questionId.toString() ===
+          securityQuestions[j].questionId
+        ) {
+          if (
+            securityAnswers.answers[i].answer === securityQuestions[j].answer
+          ) {
+            ++securityQuestionsAnsweredCorrectly;
+          }
+        }
       }
     }
 
@@ -186,15 +201,38 @@ const forgetPassword = async (req, res) => {
       });
     }
 
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(newPassword, salt);
+    const passwordHistory = await PasswordHistory.findOne({ user: user._id });
+    const lastFivePasswords = passwordHistory.hpasswords.slice(0, 5);
+    for (let i = 0; i < lastFivePasswords.length; i++) {
+      const match = await bcrypt.compare(
+        newPassword.toString(),
+        lastFivePasswords[i].hashedPassword
+      );
+      if (match) {
+        return res.status(401).json({
+          status: "error",
+          error: "Newpassword is in the last five passwords",
+        });
+      }
+    }
+
+    const hashedPassword = await bcrypt.hash(
+      newPassword.toString(),
+      saltRounds
+    );
+
+    await PasswordHistory.updateOne(
+      { _id: passwordHistory._id },
+      {
+        $push: { hpasswords: { hashedPassword, createdAt: Date.now() } },
+      }
+    );
 
     await User.updateOne(
       { _id: user._id },
       {
         $set: { password: hashedPassword },
         $set: { password: hashedPassword, attempts: 0, accountLocked: false },
-        $push: { passwordHistory: { hashedPassword, createdAt: Date.now() } },
       }
     );
 

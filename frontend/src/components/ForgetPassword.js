@@ -7,25 +7,26 @@ const ForgetPassword = () => {
   const [email, setEmail] = useState("");
   const [answers, setAnswers] = useState([]);
   const [newPassword, setNewPassword] = useState("");
-  const [repeatedPassword, setRepeatedPassword] = useState('');
-  const [error, setError] = useState("")
-  const navigate = useNavigate()
+  const [repeatedPassword, setRepeatedPassword] = useState("");
+  const [error, setError] = useState("");
+  const navigate = useNavigate();
 
   useEffect(() => {
-    const fetchSecurityQuestions = async () => {
-      try {
-        const res = await axios.get("http://localhost:5000/api/users/security");
-        const allQuestions = res.data.questions;
-        const randomQuestions = allQuestions
-          .sort(() => 0.5 - Math.random())
-          .slice(0, 2);
-        setSecurityQuestions(randomQuestions);
-      } catch (err) {
-        console.error(err);
-      }
-    };
     fetchSecurityQuestions();
   }, []);
+
+  const fetchSecurityQuestions = async () => {
+    try {
+      const res = await axios.get("http://localhost:5000/api/users/security");
+      const allQuestions = res.data.questions;
+      const randomQuestions = allQuestions
+        .sort(() => 0.5 - Math.random())
+        .slice(0, 2);
+      setSecurityQuestions(randomQuestions);
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   const handleAnswerChange = (e, id) => {
     setAnswers({ ...answers, [id]: e.target.value });
@@ -33,10 +34,13 @@ const ForgetPassword = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const passwordRegex = /^(?=.*[A-Z])(?=.*[!@#$%^&*])[a-zA-Z0-9!@#$%^&*]{8,}$/;
+    const passwordRegex =
+      /^(?=.*[A-Z])(?=.*[!@#$%^&*])[a-zA-Z0-9!@#$%^&*]{8,}$/;
     if (!passwordRegex.test(newPassword)) {
-        setError('Password must contain at least 8 characters, one capital letter and one special character')
-        return;
+      setError(
+        "Password must contain at least 8 characters, one capital letter and one special character"
+      );
+      return;
     }
     if (newPassword !== repeatedPassword) {
       setError("Passwords do not match.");
@@ -45,6 +49,7 @@ const ForgetPassword = () => {
     try {
       const securityQuestionsAnswers = securityQuestions.map(
         (question, index) => ({
+          questionId: question._id,
           question: question.question,
           answer: answers[index],
         })
@@ -57,7 +62,7 @@ const ForgetPassword = () => {
         setEmail("");
         setAnswers({});
         setNewPassword("");
-        navigate('/login')
+        navigate("/login");
         alert("Password reset successfully");
       } else {
         alert(response.data.error);
@@ -71,8 +76,8 @@ const ForgetPassword = () => {
   return (
     <div className="reg">
       <form className="ui form" onSubmit={handleSubmit}>
-      <h3 style={{fontWeight: 'bold'}}>Please enter your email !</h3>
-        <label >
+        <h3 style={{ fontWeight: "bold" }}>Please enter your email !</h3>
+        <label>
           Email
           <div className="field">
             <div className="ui input">
@@ -84,10 +89,12 @@ const ForgetPassword = () => {
             </div>
           </div>
         </label>
-        <h3 style={{fontWeight: 'bold'}}>Please answer security questions !</h3>
-        
+        <h3 style={{ fontWeight: "bold" }}>
+          Please answer security questions !
+        </h3>
+
         {securityQuestions.map((question, index) => (
-          <div  key={index}>
+          <div key={index}>
             <label>
               {question.question}
               <div className="field">
@@ -101,7 +108,7 @@ const ForgetPassword = () => {
             </label>
           </div>
         ))}
-        <h3 style={{fontWeight: 'bold'}}>Please enter your new password !</h3>
+        <h3 style={{ fontWeight: "bold" }}>Please enter your new password !</h3>
         <label>
           New Password
           <div className="field">

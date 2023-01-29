@@ -41,6 +41,7 @@ const ResetPassword = () => {
     try {
       const securityQuestionsAnswers = securityQuestions.map(
         (question, index) => ({
+          questionId: question._id,
           question: question.question,
           answer: answers[index],
         })

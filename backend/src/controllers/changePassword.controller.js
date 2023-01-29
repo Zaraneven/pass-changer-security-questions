@@ -1,13 +1,13 @@
 import bcrypt from "bcrypt";
 import User from "../models/user.model.js";
-import SecurityAnswers from '../models/securityAnswer.model.js';
+import PasswordHistory from '../models/passwordHistory.model.js'
 
 const saltRounds = 10;
 
 const changePassword = async (req, res) => {
   try {
     const { userId } = req.params;
-    const {oldPassword, securityQuestions, newPassword } = req.body;
+    const {oldPassword, newPassword } = req.body;
     const user = await User.findById(userId);
     if (!user)
       return res.status(404).json({ status: "error", error: "User not found" });
@@ -15,39 +15,33 @@ const changePassword = async (req, res) => {
     if (!match) {
       return res.status(401).json({ status: "error", error: "Invalid old password" });
     }
-    let securityQuestionsAnsweredCorrectly = 0;
-    for (let i = 0; i < securityQuestions.length; i++) {
-      const question = securityQuestions[i].question;
-      const answer = securityQuestions[i].answer;
-      const securityAnswer = await SecurityAnswers.findOne({ user: userId, question, answer });
-      if (securityAnswer) {
-        securityQuestionsAnsweredCorrectly++;
-      }
-    }
-    if (securityQuestionsAnsweredCorrectly < 2) {
-      return res.status(401).json({
-        status: "error",
-        error: "You have not answered the security questions correctly",
-      });
-    }
+    
 
-    const lastFivePasswords = user.passwordHistory.slice(0, 5);
-    for (let i = 0; i < lastFivePasswords.length; i++) {
-      const match = await bcrypt.compare(
-        newPassword.toString(),
-        lastFivePasswords[i].hashedPassword
-      );
-      if (match) {
-        return res.status(401).json({
-          status: "error",
-          error: "New password is in the last five passwords",
-        });
-      }
-    }
+    const passwordHistory = await PasswordHistory.findOne({ user: user._id });
+const lastFivePasswords = passwordHistory.hpasswords.slice(0, 5);
+for (let i = 0; i < lastFivePasswords.length; i++) {
+  const match = await bcrypt.compare(
+  newPassword.toString(),
+  lastFivePasswords[i].hashedPassword
+  );
+  if (match) {
+  return res.status(401).json({
+  status: "error",
+  error: "Newpassword is in the last five passwords",
+  });
+  }
+  }
+  
+  const hashedPassword = await bcrypt.hash(
+  newPassword.toString(),
+  saltRounds
+  );
 
-    const hashedPassword = await bcrypt.hash(
-      newPassword.toString(),
-      saltRounds
+  await PasswordHistory.updateOne(
+    { _id: passwordHistory._id },
+    {
+    $push: { hpasswords: { hashedPassword, createdAt: Date.now() } },
+    }
     );
 
     await User.updateOne(
@@ -55,7 +49,7 @@ const changePassword = async (req, res) => {
       {
         $set: { password: hashedPassword },
         $set: { password: hashedPassword, attempts: 0 },
-        $push: { passwordHistory: { hashedPassword, createdAt: Date.now() } },
+        
       }
     );
 

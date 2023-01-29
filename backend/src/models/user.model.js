@@ -7,11 +7,7 @@ const UserSchema = new mongoose.Schema({
   name: { type: String, unique: true, required: true },
   email: { type: String, unique: true, required: true },
   password: { type: String, required: true },
-  securityQuestions: [{ type: mongoose.Schema.Types.ObjectId, ref: 'SecurityAnswer' }],
   securityQuestionsAnswered: { type: Boolean, default: false },
-  passwordHistory: [
-    { hashedPassword: { type: String }, createdAt: { type: Date } },
-  ],
   attempts: { type: Number, default: 0 },
   accountLocked: { type: Boolean, default: false },
   createdAt: { type: Date, default: Date.now },
